@@ -1,0 +1,6 @@
+build/
+chess_server
+chess_client
+chess_client.exe
+tests/test_protocol
+tests/server.log

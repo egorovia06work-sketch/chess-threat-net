@@ -49,8 +49,9 @@ bool send_all(int fd, const std::string& data) {
     return true;
 }
 
-// Обслуживание одного клиента.
-void serve(int fd, std::string peer) {
+// Обслуживание одного клиента. std::thread хранит свою копию аргумента,
+// поэтому ссылка остаётся действительной всё время работы потока.
+void serve(int fd, const std::string& peer) {
     long active = ++g_stats.clients;
     log(peer, "подключился (активных клиентов: " + std::to_string(active) + ")");
     std::string buffer;
@@ -82,6 +83,8 @@ void serve(int fd, std::string peer) {
 
 }  // namespace
 
+// Сигнатура main задана стандартом C++, поэтому замечание подавлено.
+// cppcheck-suppress constParameter
 int main(int argc, char* argv[]) {
     std::string addr = "0.0.0.0";
     int port = chess::proto::kDefaultPort;

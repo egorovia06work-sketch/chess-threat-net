@@ -51,8 +51,8 @@ bool send_all(int fd, const std::string& data) {
 
 // Обслуживание одного клиента.
 void serve(int fd, std::string peer) {
-    ++g_stats.clients;
-    log(peer, "подключился");
+    long active = ++g_stats.clients;
+    log(peer, "подключился (активных клиентов: " + std::to_string(active) + ")");
     std::string buffer;
     char chunk[1024];
     bool open = true;
@@ -76,8 +76,8 @@ void serve(int fd, std::string peer) {
         }
     }
     close(fd);
-    --g_stats.clients;
-    log(peer, "отключился");
+    active = --g_stats.clients;
+    log(peer, "отключился (активных клиентов: " + std::to_string(active) + ")");
 }
 
 }  // namespace

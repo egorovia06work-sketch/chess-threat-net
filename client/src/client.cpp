@@ -19,6 +19,7 @@ using ssize_t = long long;
 #endif
 #include <chrono>
 #include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <stdexcept>
 #include <fstream>
@@ -79,6 +80,13 @@ private:
     std::string buffer_;
 };
 
+// Время ответа в миллисекундах с двумя знаками.
+std::string format_ms(double ms) {
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%.2f", ms);
+    return buf;
+}
+
 // Запрос с замером времени; печать ответа. Возвращает true, если ответ не ERR.
 bool ask(Connection& c, const std::string& line, bool verbose) {
     auto t0 = std::chrono::steady_clock::now();
@@ -87,7 +95,7 @@ bool ask(Connection& c, const std::string& line, bool verbose) {
                   std::chrono::steady_clock::now() - t0).count();
     if (verbose) std::cout << "> " << line << "\n";
     std::cout << reply;
-    if (verbose) std::cout << "   [" << us / 1000.0 << " мс]";
+    if (verbose) std::cout << "   [" << format_ms(us / 1000.0) << " мс]";
     std::cout << "\n";
     return reply.rfind("ERR", 0) != 0;
 }

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# pre-commit — выполняется перед фиксацией. Ненулевой код возврата отменяет коммит.
+# Обойти (только в крайнем случае): git commit --no-verify
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+C='\033[1;36m'; R='\033[1;31m'; G='\033[1;32m'; N='\033[0m'
+[ -t 1 ] || { C=''; R=''; G=''; N=''; }
+step() { printf "${C}[pre-commit]${N} %s\n" "$*"; }
+fail() { printf "${R}[pre-commit] КОММИТ ОТМЕНЁН:${N} %s\n" "$*"; exit 1; }
+
+step "последние три изменения в ветке $(git branch --show-current):"
+git --no-pager log -3 --format='  %h  %ad  %an  %s' --date=format:'%Y-%m-%d %H:%M' 2>/dev/null \
+    || echo "  (коммитов ещё нет)"
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+CPP=$(echo "$STAGED" | grep -E '\.(cpp|h|hpp)$' || true)
+step "файлы в индексе: $(echo "$STAGED" | grep -c .)"
+
+# 1. Пробелы в конце строк и маркеры конфликта слияния
+step "проверка пробелов и маркеров конфликтов (git diff --cached --check)"
+git diff --cached --check || fail "исправьте пробелы в конце строк / маркеры конфликтов"
+
+# 2. Сборка и модульные тесты — только если менялся код
+if echo "$STAGED" | grep -qE '\.(cpp|h|hpp)$|Makefile'; then
+    step "сборка (make)"
+    make --no-print-directory -s > /tmp/pre-commit-build.log 2>&1 \
+        || { cat /tmp/pre-commit-build.log; fail "проект не собирается"; }
+    step "модульные тесты (make unit)"
+    make --no-print-directory -s unit > /tmp/pre-commit-unit.log 2>&1 \
+        || { grep -E 'FAIL|Пройдено' /tmp/pre-commit-unit.log; fail "модульные тесты не пройдены"; }
+    grep 'Пройдено' /tmp/pre-commit-unit.log | sed 's/^/  /'
+fi
+
+# 3. Статический анализ: ошибки (severity=error) в изменённых файлах C++ блокируют коммит
+if [ -n "$CPP" ]; then
+    step "cppcheck: поиск ошибок в изменённых файлах"
+    # shellcheck disable=SC2086
+    cppcheck --error-exitcode=2 --std=c++17 --language=c++ --quiet -I lib $CPP \
+        || fail "cppcheck нашёл ошибки"
+fi
+
+printf "${G}[pre-commit] проверки пройдены${N}\n"
